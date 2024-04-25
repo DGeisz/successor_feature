@@ -843,7 +843,10 @@ def run_full_analysis(clean_tokens, corrupted_tokens):
 # # Probing the behavior of the successor feature on various prompts
 
 # %%
-show_stats_for_string("14. Washington 15. California 16. Oregon")
+show_stats_for_string("2. Washington 15. California 16. Oregon")
+
+# %%
+show_stats_for_string("14. Washington 15. Daniel 16. Oregon")
 
 # %%
 show_stats_for_string("14. Washington 15. California 16. Daniel")
@@ -890,7 +893,11 @@ clean_tokens = model.to_tokens(clean_prompts, prepend_bos=True)
 
 _, clean_cache = model.run_with_cache(clean_tokens)
 
-print_prompt_stats(clean_prompts)
+# print_prompt_stats(clean_prompts)
+
+# %%
+list(clean_cache.keys())
+
 
 # %%
 
