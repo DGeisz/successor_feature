@@ -21,7 +21,7 @@ from src.activation import show_stats_for_string
 
 
 # %%
-N = 100
+N = 200
 
 clean_dataset = CleanDataset(N)
 # corrupted_dataset = LastNameCorruptedDataset(N)
