@@ -3,17 +3,9 @@ import random
 from src.dataset.dataset import Dataset, BASIC_TEMPLATE
 from src.dataset.raw_inputs import US_STATES_SINGLE_WORD
 
-from typing import List
-
 
 class CleanDataset(Dataset):
-    N: int
-    prompt_strings: List[str]
-
-    # def __init__(self, N: int):
-    #     self.N = N
-
-    #     self.prompt_strings = self.generate()
+    name = "Clean"
 
     def generate_prompt_strings(self):
         dataset = []
@@ -29,3 +21,16 @@ class CleanDataset(Dataset):
         dataset = dataset[: self.N]
 
         return dataset
+
+
+dataset_cache = dict()
+
+
+def get_clean_dataset(N: int):
+    if N in dataset_cache:
+        return dataset_cache[N]
+
+    clean_dataset = CleanDataset(N, first_set=True)
+    dataset_cache[N] = clean_dataset
+
+    return clean_dataset

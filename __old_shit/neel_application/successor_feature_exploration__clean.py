@@ -894,9 +894,16 @@ clean_tokens = model.to_tokens(clean_prompts, prepend_bos=True)
 _, clean_cache = model.run_with_cache(clean_tokens)
 
 # print_prompt_stats(clean_prompts)
+# %%
+einops.repeat(clean_cache['q', 0].mean(dim=0), "... -> n ...", n=3).shape
+
 
 # %%
 list(clean_cache.keys())
+
+# %%
+str((2, 3))
+
 
 
 # %%

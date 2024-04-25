@@ -1,6 +1,6 @@
 import random
 
-from src.dataset.dataset import Dataset, BASIC_TEMPLATE
+from src.dataset.dataset import Dataset, BASIC_TEMPLATE, verify_prompt_len
 from src.dataset.raw_inputs import US_STATES_SINGLE_WORD, MALE_NAMES, BASIC_FILLER_WORDS
 from typing import List
 
@@ -8,6 +8,8 @@ LAST_NUMBER_CORRUPTED_TEMPLATE = "14. {} 15. {} {}. {}"
 
 
 class LastNumberCorruptedDataset(Dataset):
+    name = "LastNumberCorrupted"
+
     def generate_prompt_strings(self) -> List[str]:
         dataset = []
 
@@ -27,7 +29,7 @@ class LastNumberCorruptedDataset(Dataset):
                 random_states[2],
             )
 
-            if candidate not in dataset:
+            if verify_prompt_len(candidate) and candidate not in dataset:
                 dataset.append(candidate)
 
         dataset = dataset[: self.N]
@@ -39,6 +41,8 @@ SECOND_NUMBER_CORRUPTED_TEMPLATE = "14. {} {}. {} 16. {}"
 
 
 class SecondNumberCorruptedDataset(Dataset):
+    name = "SecondNumberCorrupted"
+
     def generate_prompt_strings(self) -> List[str]:
         dataset = []
 
@@ -54,7 +58,7 @@ class SecondNumberCorruptedDataset(Dataset):
                 random_states[2],
             )
 
-            if candidate not in dataset:
+            if verify_prompt_len(candidate) and candidate not in dataset:
                 dataset.append(candidate)
 
         dataset = dataset[: self.N]
@@ -66,6 +70,8 @@ FIRST_NUMBER_CORRUPTED_TEMPLATE = "{}. {} 15. {} 16. {}"
 
 
 class FirstNumberCorruptedDataset(Dataset):
+    name = "FirstNumberCorrupted"
+
     def generate_prompt_strings(self) -> List[str]:
         dataset = []
 
@@ -81,7 +87,7 @@ class FirstNumberCorruptedDataset(Dataset):
                 random_states[2],
             )
 
-            if candidate not in dataset:
+            if verify_prompt_len(candidate) and candidate not in dataset:
                 dataset.append(candidate)
 
         dataset = dataset[: self.N]

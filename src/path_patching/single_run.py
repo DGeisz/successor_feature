@@ -78,6 +78,7 @@ class SingleRun:
         corrupted_dataset,
         target_nodes: List[AttnHead],
         target_location: str,
+        normalizing_function=None,
     ):
         self.clean_dataset = clean_dataset
         self.corrupted_dataset = corrupted_dataset
@@ -89,9 +90,12 @@ class SingleRun:
 
         self.model = model
 
-        self.normalizing_function = get_normalizing_function_for_datasets(
-            self.clean_dataset, self.corrupted_dataset
-        )
+        if normalizing_function is not None:
+            self.normalizing_function = normalizing_function
+        else:
+            self.normalizing_function = get_normalizing_function_for_datasets(
+                self.clean_dataset, self.corrupted_dataset
+            )
 
     def run(self):
         receiver_layers = [layer for layer, _ in self.target_nodes]
@@ -103,7 +107,9 @@ class SingleRun:
         results = torch.zeros(min(receiver_layers), model.cfg.n_heads)
 
         for layer, head in tqdm(
-            itertools.product(range(min(receiver_layers)), range(model.cfg.n_heads))
+            list(
+                itertools.product(range(min(receiver_layers)), range(model.cfg.n_heads))
+            )
             # itertools.product(range(1), range(2))
         ):
             # print("LH", layer, head)
