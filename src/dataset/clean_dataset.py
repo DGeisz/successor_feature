@@ -30,7 +30,7 @@ def get_clean_dataset(N: int):
     if N in dataset_cache:
         return dataset_cache[N]
 
-    clean_dataset = CleanDataset(N, first_set=True)
+    clean_dataset = CleanDataset(N, first_run=True)
     dataset_cache[N] = clean_dataset
 
     return clean_dataset

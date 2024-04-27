@@ -6,7 +6,11 @@ from typing import List
 from functools import partial
 
 from src.activation import get_linear_feature_activation_from_cache
-from src.dataset.dataset import Dataset, get_normalizing_function_for_datasets
+from src.dataset.dataset import (
+    Dataset,
+    get_corrupted_normalizing_function_for_datasets,
+    get_mended_normalizing_function_for_datasets,
+)
 from src.plot_utils import imshow
 from src.type_utils import AttnHead
 from src.model import model
@@ -16,6 +20,7 @@ from torch import Tensor
 from transformer_lens.hook_points import HookPoint
 from transformer_lens import ActivationCache
 from tqdm import tqdm
+from enum import Enum
 
 MLP_0 = utils.get_act_name("mlp_out", 0)
 
@@ -38,17 +43,21 @@ def edge_computation_hook(
     activation: Float[Tensor, "batch pos head_idx d_head"],
     hook: HookPoint,
     isolated_source: AttnHead,
-    clean_dataset: Dataset,
-    corrupted_dataset: Dataset,
+    base_dataset: Dataset,
+    patch_dataset: Dataset,
+    mean_patch=True,
 ):
-    activation[...] = clean_dataset.cache[hook.name][...]
+    activation[...] = base_dataset.cache[hook.name][...]
 
     layer, head = isolated_source
 
     if hook.layer() == layer:
-        activation[:, :, head] = corrupted_dataset.get_mean_patch(
-            str(hook.name), activation.shape[0]
-        )[:, :, head]
+        if mean_patch:
+            activation[:, :, head] = patch_dataset.get_mean_patch(
+                str(hook.name), activation.shape[0]
+            )[:, :, head]
+        else:
+            activation[:, :, head] = patch_dataset.cache[hook.name][:, :, head]
 
     return activation
 
@@ -69,6 +78,11 @@ def edge_patch_hook(
     return activation
 
 
+class PatchType(Enum):
+    CORRUPT = 1
+    MEND = 2
+
+
 class SingleRun:
     _results = None
 
@@ -79,10 +93,12 @@ class SingleRun:
         target_nodes: List[AttnHead],
         target_location: str,
         normalizing_function=None,
+        patch_type=PatchType.CORRUPT,
     ):
         self.clean_dataset = clean_dataset
         self.corrupted_dataset = corrupted_dataset
         self.target_nodes = target_nodes
+        self.patch_type = patch_type
 
         assert target_location in ("q", "k", "v", "z")
 
@@ -93,11 +109,31 @@ class SingleRun:
         if normalizing_function is not None:
             self.normalizing_function = normalizing_function
         else:
-            self.normalizing_function = get_normalizing_function_for_datasets(
-                self.clean_dataset, self.corrupted_dataset
-            )
+            if patch_type == PatchType.CORRUPT:
+                self.normalizing_function = (
+                    get_corrupted_normalizing_function_for_datasets(
+                        self.clean_dataset, self.corrupted_dataset
+                    )
+                )
+            else:
+                self.normalizing_function = (
+                    get_mended_normalizing_function_for_datasets(
+                        self.clean_dataset, self.corrupted_dataset
+                    )
+                )
 
     def run(self):
+        if self.patch_type == PatchType.CORRUPT:
+            mean_patch = True
+
+            base_dataset = self.clean_dataset
+            patch_dataset = self.corrupted_dataset
+        else:
+            mean_patch = False
+
+            base_dataset = self.corrupted_dataset
+            patch_dataset = self.clean_dataset
+
         receiver_layers = [layer for layer, _ in self.target_nodes]
         receiver_hook_names = [
             utils.get_act_name(self.target_location, layer) for layer in receiver_layers
@@ -110,42 +146,40 @@ class SingleRun:
             list(
                 itertools.product(range(min(receiver_layers)), range(model.cfg.n_heads))
             )
-            # itertools.product(range(1), range(2))
         ):
-            # print("LH", layer, head)
             model.reset_hooks()
 
-            # print(1)
             edge_computation_hook_fn = partial(
                 edge_computation_hook,
                 isolated_source=(layer, head),
-                clean_dataset=self.clean_dataset,
-                corrupted_dataset=self.corrupted_dataset,
+                base_dataset=base_dataset,
+                patch_dataset=patch_dataset,
+                mean_patch=mean_patch,
+                # base_dataset=self.clean_dataset,
+                # patch_dataset=self.corrupted_dataset,
             )
 
-            # print(21)
             model.add_hook(node_filter, edge_computation_hook_fn)
 
             _, edge_cache = model.run_with_cache(
-                self.clean_dataset.tokens, return_type=None
+                # self.clean_dataset.tokens, return_type=None
+                base_dataset.tokens,
+                return_type=None,
             )
-            # print(3)
 
             model.reset_hooks()
 
             edge_patch_hook_fn = partial(
                 edge_patch_hook, target_nodes=self.target_nodes, patch_cache=edge_cache
             )
-            # print(4)
 
             model.add_hook(receiver_hook_names_filter, edge_patch_hook_fn)
 
-            model._forward_hooks
-
             _, final_cache = model.run_with_cache(
-                self.clean_dataset.tokens, return_type=None
+                # self.clean_dataset.tokens, return_type=None
+                base_dataset.tokens,
+                return_type=None,
             )
-            # print(5)
 
             results[layer, head] = self.normalizing_function(
                 get_linear_feature_activation_from_cache(final_cache)

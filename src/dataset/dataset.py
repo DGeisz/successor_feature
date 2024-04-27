@@ -20,7 +20,7 @@ class Dataset(ABC):
     _cache = None
     name: str = "OVERRIDE ME"
 
-    def __init__(self, N: int, first_set: bool = False):
+    def __init__(self, N: int, first_run: bool = False):
         self.N = N
 
         while True:
@@ -33,7 +33,7 @@ class Dataset(ABC):
 
             print("Dataset Init", self.name, activation)
 
-            if first_set or activation < -0.05:
+            if first_run or activation < -0.05:
                 self.prompt_strings = prompt_strings
                 self.tokens = tokens
                 break
@@ -63,12 +63,33 @@ class Dataset(ABC):
         return einops.repeat(self.cache[name].mean(dim=0), "... -> n ...", n=batch_size)
 
 
-def get_normalizing_function_for_datasets(
+def get_mended_normalizing_function_for_activations(
+    clean_activation, corrupted_activation
+):
+
+    def normalize_activation(activation):
+        return (activation - corrupted_activation) / (
+            clean_activation - corrupted_activation
+        )
+
+    return normalize_activation
+
+
+def get_mended_normalizing_function_for_datasets(
     clean_dataset: Dataset, corrupted_dataset: Dataset
 ):
     corrupted_activation = corrupted_dataset.get_average_activation()
     clean_activation = clean_dataset.get_average_activation()
 
+    return get_mended_normalizing_function_for_activations(
+        clean_activation=clean_activation, corrupted_activation=corrupted_activation
+    )
+
+
+def get_corrupted_normalizing_function_for_activations(
+    clean_activation, corrupted_activation
+):
+
     def normalize_activation(activation):
         return (clean_activation - activation) / (
             clean_activation - corrupted_activation
@@ -77,11 +98,12 @@ def get_normalizing_function_for_datasets(
     return normalize_activation
 
 
-def get_normalizing_function_for_activations(clean_activation, corrupted_activation):
+def get_corrupted_normalizing_function_for_datasets(
+    clean_dataset: Dataset, corrupted_dataset: Dataset
+):
+    corrupted_activation = corrupted_dataset.get_average_activation()
+    clean_activation = clean_dataset.get_average_activation()
 
-    def normalize_activation(activation):
-        return (clean_activation - activation) / (
-            clean_activation - corrupted_activation
-        )
-
-    return normalize_activation
+    return get_corrupted_normalizing_function_for_activations(
+        clean_activation=clean_activation, corrupted_activation=corrupted_activation
+    )

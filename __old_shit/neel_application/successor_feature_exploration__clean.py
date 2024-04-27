@@ -894,16 +894,6 @@ clean_tokens = model.to_tokens(clean_prompts, prepend_bos=True)
 _, clean_cache = model.run_with_cache(clean_tokens)
 
 # print_prompt_stats(clean_prompts)
-# %%
-einops.repeat(clean_cache['q', 0].mean(dim=0), "... -> n ...", n=3).shape
-
-
-# %%
-list(clean_cache.keys())
-
-# %%
-str((2, 3))
-
 
 
 # %%
@@ -1003,8 +993,8 @@ print_prompt_stats(long_distance_last_number_corrupted_prompts)
 
 # %%
 run_full_analysis(
-    long_distance_tokens, 
-    long_distance_last_number_corrupted_tokens
+    clean_tokens, 
+    random_prefix_corrupted_tokens
 )
 
 # %%
