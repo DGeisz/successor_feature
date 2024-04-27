@@ -84,7 +84,7 @@ def get_recons_loss_2(num_batches=5, local_encoder=None):
 cfg['enc_dtype']
 
 # %%
-cfg['lr'] = 1e-4
+cfg['lr'] = 5e-4
 
 
 

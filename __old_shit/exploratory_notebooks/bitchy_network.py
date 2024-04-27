@@ -80,9 +80,11 @@ class BitchyNetwork(nn.Module):
         x_cent = x - self.b_dec
 
         raw_output = einops.einsum(x_cent, self.W_enc, "n d, f d -> n f") + self.b_enc
-        winner_indices = t.argsort(raw_output, descending=True, dim=-1)[
-            :, : self.num_winners
-        ]
+        winner_indices = t.topk(raw_output, self.num_winners, dim=-1).indices
+
+        # winner_indices = t.argsort(raw_output, descending=True, dim=-1)[
+        #     :, : self.num_winners
+        # ]
 
         # We want to set all values that weren't winners to 0
         mask = t.zeros_like(raw_output)
