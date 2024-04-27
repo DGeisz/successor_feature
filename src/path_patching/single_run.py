@@ -35,8 +35,33 @@ def node_filter(name: str) -> bool:
     return name.endswith("z")
 
 
+def non_attn_node_filter(name: str) -> bool:
+    return name == utils.get_act_name("mlp_out", 0) or name == "hook_embed"
+
+
 def z_filter(name: str) -> bool:
     return name.endswith("z")
+
+
+def edge_computation_hook_non_attn(
+    activation: Float[Tensor, "batch pos d_model"],
+    hook: HookPoint,
+    isolated_source: str,
+    base_dataset: Dataset,
+    patch_dataset: Dataset,
+    mean_patch=True,
+):
+    activation[...] = base_dataset.cache[hook.name][...]
+
+    if hook.name == isolated_source:
+        if mean_patch:
+            activation = patch_dataset.get_mean_patch(
+                str(hook.name), activation.shape[0]
+            )
+        else:
+            activation = patch_dataset.cache[hook.name]
+
+    return activation
 
 
 def edge_computation_hook(
@@ -47,6 +72,7 @@ def edge_computation_hook(
     patch_dataset: Dataset,
     mean_patch=True,
 ):
+
     activation[...] = base_dataset.cache[hook.name][...]
 
     layer, head = isolated_source
@@ -140,7 +166,7 @@ class SingleRun:
         ]
         receiver_hook_names_filter = lambda name: name in receiver_hook_names
 
-        results = torch.zeros(min(receiver_layers), model.cfg.n_heads)
+        results = torch.zeros(min(receiver_layers) + 1, model.cfg.n_heads)
 
         for layer, head in tqdm(
             list(
@@ -182,6 +208,47 @@ class SingleRun:
             )
 
             results[layer, head] = self.normalizing_function(
+                get_linear_feature_activation_from_cache(final_cache)
+            )
+
+        for i, name in tqdm(
+            enumerate([utils.get_act_name("mlp_out", 0), "hook_embed"])
+        ):
+            model.reset_hooks()
+
+            edge_computation_hook_fn = partial(
+                edge_computation_hook_non_attn,
+                isolated_source=name,
+                base_dataset=base_dataset,
+                patch_dataset=patch_dataset,
+                mean_patch=mean_patch,
+            )
+
+            model.add_hook(non_attn_node_filter, edge_computation_hook_fn)
+
+            edge_computation_attn_hook = partial(
+                edge_computation_hook,
+                isolated_source=(-1, -1),
+                base_dataset=base_dataset,
+                patch_dataset=patch_dataset,
+                mean_patch=mean_patch,
+            )
+
+            model.add_hook(node_filter, edge_computation_attn_hook)
+
+            _, edge_cache = model.run_with_cache(base_dataset.tokens, return_type=None)
+
+            model.reset_hooks()
+
+            edge_patch_hook_fn = partial(
+                edge_patch_hook, target_nodes=self.target_nodes, patch_cache=edge_cache
+            )
+
+            model.add_hook(receiver_hook_names_filter, edge_patch_hook_fn)
+
+            _, final_cache = model.run_with_cache(base_dataset.tokens, return_type=None)
+
+            results[-1, i] = self.normalizing_function(
                 get_linear_feature_activation_from_cache(final_cache)
             )
 

@@ -1,6 +1,6 @@
 # %%
-# %load_ext autoreload
-# %autoreload 2
+%load_ext autoreload
+%autoreload 2
 
 # %%
 import sys
@@ -19,13 +19,18 @@ from src.path_patching.single_run import PatchType
 # %%
 N = 100
 heads: List[AttnHead] = [(4, 4)]
-patch_type = PatchType.CORRUPT
+patch_type = PatchType.MEND
 
 
 # %%
+
 values = MultiDatasetRun(
     N, heads, "v", patch_type=patch_type, individual_normalization=True, first_run=True
 )
+
+# %%
+values.show_single_dataset_results(1)
+
 
 
 # %%
@@ -40,7 +45,7 @@ queries = MultiDatasetRun(
 )
 
 # %%
-queries.show_single_dataset_results(1)
+queries.show_single_dataset_results(0)
 
 
 # %%
@@ -48,6 +53,7 @@ queries.show_all_results()
 
 
 # %%
+
 keys = MultiDatasetRun(
     # N, heads, "k"
     N,

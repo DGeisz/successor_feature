@@ -37,12 +37,17 @@ class BitchyNetwork(nn.Module):
         self.num_winners = num_winners
         self._buffer = buffer
 
-        self.W = nn.Parameter(
-            self._init_weights()
-            # torch.nn.init.kaiming_uniform_(
-            #     torch.empty(num_features, d_mlp, dtype=dtype)
-            # )
-        )
+        init_weights = self._init_weights()
+
+        w = 0
+
+        if self.width:
+            w = self.width
+
+        self.W_enc = nn.Parameter(init_weights.clone())
+        self.W_dec = nn.Parameter(init_weights.clone())
+        self.b_enc = nn.Parameter(torch.zeros(num_features, dtype=self.dtype))
+        self.b_dec = nn.Parameter(torch.zeros(w, dtype=self.dtype))
 
         self.to(cfg["device"])
 
@@ -72,7 +77,9 @@ class BitchyNetwork(nn.Module):
         return features.to(self.dtype)
 
     def forward(self, x):
-        raw_output = einops.einsum(x, self.W, "n d, f d -> n f")
+        x_cent = x - self.b_dec
+
+        raw_output = einops.einsum(x_cent, self.W_enc, "n d, f d -> n f") + self.b_enc
         winner_indices = t.argsort(raw_output, descending=True, dim=-1)[
             :, : self.num_winners
         ]
@@ -86,7 +93,9 @@ class BitchyNetwork(nn.Module):
 
         acts = mask * raw_output
 
-        reconstructed_x = einops.einsum(acts, self.W, "n f, f d -> n d")
+        reconstructed_x = (
+            einops.einsum(acts, self.W_dec, "n f, f d -> n d") + self.b_dec
+        )
 
         loss = (reconstructed_x.float() - x.float()).pow(2).sum(dim=-1).mean(0)
 
